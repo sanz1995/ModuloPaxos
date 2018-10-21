@@ -110,6 +110,8 @@ defmodule ServidorPaxos do
         Send.con_nodo_emisor({:paxos, nodo_paxos},{:decidido?,nu_instancia,self()})
         receive do
             mensaje -> mensaje
+        after @timeout ->
+            {false,:ficticio}    
         end
         #:ok
     end
@@ -193,6 +195,7 @@ defmodule ServidorPaxos do
     """
     @spec escucha(node) :: :escucha
     def escucha(nodo_paxos) do
+        IO.inspect({"Escuchar",nodo_paxos})
         Send.con_nodo_emisor({:paxos, nodo_paxos},:escucha)
     end
 
@@ -277,7 +280,9 @@ defmodule ServidorPaxos do
 
                 send(origin,Enum.max(Map.keys(estado.decididos)))
             
-            :ponte_sordo -> espero_escucha(estado);
+            :ponte_sordo -> 
+                IO.inspect({"Estoy sordo",estado.yo})
+                espero_escucha(estado);
 
             {'EXIT', _pid, dato_devuelto} -> 
                 # Cuando proceso proponente acaba
@@ -313,13 +318,14 @@ defmodule ServidorPaxos do
     end
 
     defp espero_escucha(estado) do
-        IO.puts("#{node()} : Esperando a recibir escucha")
+        #IO.puts("#{node()} : Esperando a recibir escucha")
         receive do
-            :escucha ->
+            {origin,:escucha} ->
                 IO.puts("#{node()} : Salgo de la sordera !!")
                 bucle_recepcion(estado)
             
-            _resto -> espero_escucha(estado)
+            _resto ->
+                espero_escucha(estado)
         end
     end
     
@@ -341,9 +347,6 @@ defmodule ServidorPaxos do
     defp gestion_mnsj_prop_y_acep( mensaje,estado) do
 
         # VUESTRO CODIGO AQUI
-
-
-
 
         case mensaje do    
 
@@ -378,21 +381,29 @@ defmodule ServidorPaxos do
                 send(estado.aceptadores[num_instancia],{:acepta,n,v,origin})
                 bucle_recepcion(estado)
 
-            {:decidido,v,num_instancia} -> 
+
+            {:decidido,v,origin,num_instancia} -> 
+
+                if(estado.aceptadores[num_instancia] == nil) do
+                    estado = %{estado | aceptadores: Map.put(estado.aceptadores,num_instancia,Aceptador.init(num_instancia))}
+                    send(estado.aceptadores[num_instancia],{:decidido,origin})
+                else
+                    send(estado.aceptadores[num_instancia],{:decidido,origin})
+                end
+
+
+                
 
                 if estado.decididos[num_instancia] == nil do
                     estado = %{estado | decididos: Map.put(estado.decididos,num_instancia,v)}
                     IO.inspect({"decidido",num_instancia,v})
                     bucle_recepcion(estado)
                 else
-                    IO.inspect({"Instancia ya había sido decidida",num_instancia,v})
+                    #IO.inspect({"Instancia ya había sido decidida",num_instancia,v})
                     bucle_recepcion(estado)
                 end
 
-
-
-
-
+            {:recibido,num_instancia} -> send(estado.proponentes[num_instancia],:decidido)
 
             #Mensajes para el proponente
             {:prepare_ok,n,n_a,v_a,num_instancia} -> 

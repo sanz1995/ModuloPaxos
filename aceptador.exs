@@ -28,7 +28,9 @@ defmodule Aceptador do
                     aceptador(num_instancia,n,n,v)
                 else
                     Send.con_nodo_emisor({:paxos, origin},{:acepta_reject,n_p,num_instancia})
+                    aceptador(num_instancia,n_p,n_p,v_a)
                 end
+            {:decidido,origin} -> Send.con_nodo_emisor({:paxos, origin},{:recibido,num_instancia})
 
 
         end

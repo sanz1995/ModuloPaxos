@@ -5,7 +5,7 @@ defmodule Proponente do
 	
 
 
-    @t 25
+    @t 50
 	def init(servidores, num_instancia, v, paxos) do
 	    Node.spawn_link(node(), __MODULE__, :proponer, [servidores,num_instancia, 0, v, paxos])
 	end
@@ -39,11 +39,10 @@ defmodule Proponente do
                 
                 IO.puts("Acuerdo en Acepta")
 
-                #ENVIAR DECIDIDO A TODOS LOS SERVIDORES
-                Enum.map(servidores, fn x -> Send.con_nodo_emisor({:paxos, x},{:decidido,v,num_instancia}) end)
 
+                decidir(num_instancia,v,servidores,paxos)
 
-                IO.puts("Terminado")
+                
                 #INFORMAR AL NODO PAXOS DE QUE HA TERMINADO EL PROCESO
                 Send.con_nodo_emisor({:paxos, paxos},{'EXIT',self(),:ok})
             else
@@ -60,6 +59,18 @@ defmodule Proponente do
 
     end
 
+    def decidir(num_instancia,v,servidores,paxos) do
+        
+        #ENVIAR DECIDIDO A TODOS LOS SERVIDORES
+        Enum.map(servidores, fn x -> Send.con_nodo_emisor({:paxos, x},{:decidido,v,paxos,num_instancia}) end)
+
+        if esperar_confirmacion(length(servidores),0) do
+            IO.puts("Terminado")
+            :ok
+        else
+            decidir(num_instancia,v,servidores,paxos)
+        end
+    end
 
 
 
@@ -120,6 +131,19 @@ defmodule Proponente do
         end       
     end
 
+
+    def esperar_confirmacion(necesarios,count) do
+
+        receive do
+            :recibido -> 
+                if (count+1)>necesarios do
+                    true
+                else
+                    esperar_confirmacion(necesarios,count + 1)
+                end
+        after @t -> false
+        end       
+    end
 
     
 end
