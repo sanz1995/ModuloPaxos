@@ -96,7 +96,7 @@ defmodule  ServicioPaxosTest do
         end
 
         # Cuarto test
-        @tag :deshabilitado
+        #@tag :deshabilitado
         test "Instancias fuera de orden",
                                         %{n1: n1, n2: n2, n3: n3, s: servers} do
             IO.puts("Test: Instancias fuera de orden ...")

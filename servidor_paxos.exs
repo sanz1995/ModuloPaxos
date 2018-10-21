@@ -4,6 +4,8 @@
 # Compilar y cargar ficheros con modulos necesarios
 Code.require_file("#{__DIR__}/nodo_remoto.exs")
 Code.require_file("#{__DIR__}/send_adicional.exs")
+Code.require_file("#{__DIR__}/proponente.exs")
+Code.require_file("#{__DIR__}/aceptador.exs")
 
 defmodule ServidorPaxos do
 
@@ -25,21 +27,9 @@ defmodule ServidorPaxos do
                 servidores: [],
                 yo: :ninguno ,
                 nodos_accesibles: [], # por defecto, nodo no pertenece partición
-                decididos: [],
-                n_p: 0,
-                n_a: 0,
-                v_a: 0,
-                v: 0,
-
-
-
-                may_n_a: 0,
-                enviados_a: false,
-                n_prepara: 0,
-                n_acepta: 0,
-                enviados_d: false,
-                n_rejected: 0,
-                repetido: false
+                decididos: %{},
+                proponentes: %{},
+                aceptadores: %{}
               #completar esta estructura de datos con lo que se necesite
 
     @timeout 50
@@ -115,12 +105,13 @@ defmodule ServidorPaxos do
         
         #{Decidido,}
         
-        IO.puts("comprobando")
+        #IO.puts("comprobando")
 
         Send.con_nodo_emisor({:paxos, nodo_paxos},{:decidido?,nu_instancia,self()})
         receive do
-            {n,v} -> {true,v}
+            mensaje -> mensaje
         end
+        #:ok
     end
 
     @doc """
@@ -145,6 +136,13 @@ defmodule ServidorPaxos do
     def maxi(nodo_paxos) do
         
         # VUESTRO CODIGO AQUI
+
+        Send.con_nodo_emisor({:paxos, nodo_paxos},{:max,self()})
+        receive do
+            mensaje -> mensaje
+        end
+
+     
 
     end
 
@@ -264,10 +262,20 @@ defmodule ServidorPaxos do
 
             {:decidido?, n,origin} ->
                 #?????????
-                send(origin,Enum.find(estado.decididos, fn(x) -> match?({n, _}, x) end))
+                v = estado.decididos[n]
+                #IO.inspect(v)
+
+                if v == nil do
+                    send(origin,{false,:ficticio})
+                else
+                    send(origin,{true,v})
+                end
 
 
                 bucle_recepcion(estado)
+            {:max,origin} ->
+
+                send(origin,Enum.max(Map.keys(estado.decididos)))
             
             :ponte_sordo -> espero_escucha(estado);
 
@@ -275,6 +283,10 @@ defmodule ServidorPaxos do
                 # Cuando proceso proponente acaba
     
                 # VUESTRO CODIGO AQUI
+
+                IO.puts("FIN")
+                #estado = %{estado | proponente: nil}
+                
 
                 bucle_recepcion(estado)
 
@@ -334,139 +346,71 @@ defmodule ServidorPaxos do
 
 
         case mensaje do    
-            {:proponer,n,v} -> 
 
-                
-                
-                Enum.map(estado.servidores, fn x -> Send.con_nodo_emisor({:paxos, x},{:prepara,n,estado.yo}) end)
+            #Empezar propuesta
+            {:proponer,num_instancia,v} -> 
 
-                estado = %{estado | v: v}
-
-
-
-                estado = %{estado | n_prepara: 0}
-                estado = %{estado | enviados_a: false}
-                estado = %{estado | n_acepta: 0}
-                estado = %{estado | enviados_d: false}
-                estado = %{estado | n_rejected: 0}
-                estado = %{estado | repetido: false}
-
-
-                bucle_recepcion(estado)
-
-            {:prepara, n,origin} -> 
-
-                #IO.inspect({"Respondiendo",estado.yo,origin })
-                if n > estado.n_p do
-                    estado = %{estado | n_p: n}
-                    Send.con_nodo_emisor({:paxos, origin},{:prepare_ok,n,estado.n_a,estado.v_a})
+                #Inicializar proponente para la nueva instancia
+                if estado.proponentes[num_instancia] == nil do
+                    #estado = %{estado | proponente: Proponente.init(estado.servidores,num_instancia, v, estado.yo)}
+                    estado = %{estado | proponentes: Map.put(estado.proponentes,num_instancia,Proponente.init(estado.servidores,num_instancia, v, estado.yo))}
                     bucle_recepcion(estado)
                 else
-                    Send.con_nodo_emisor({:paxos, origin},{:prepare_reject,estado.n_p})
-                end
-            {:prepare_ok,n,n_a,v_a} -> 
-
-
-                estado = %{estado | n_prepara: estado.n_prepara+1}
-                IO.inspect({estado.n_prepara,estado.yo})
-
-
-                #Comprobar si hay que actualizar v
-                estado = actualizarV(estado,n,n_a,v_a)
-
-
-
-                if estado.n_prepara >= (length(estado.servidores)/2) do
-                    #Mayoría
-
-                    #Comprobar que no se haya enviado ya
-                    if estado.enviados_a == false do
-                        IO.inspect("Mayoria")
-                        Enum.map(estado.servidores, fn x -> Send.con_nodo_emisor({:paxos, x},{:acepta,n,estado.v,estado.yo}) end)
-                        estado = %{estado | enviados_a: true}
-                        bucle_recepcion(estado)
-                    end
-                end
-
-
-
-                bucle_recepcion(estado)
-
-
-            {:prepare_reject,n_p} -> 
-                IO.inspect({"rejected",estado.yo})
-                estado = %{estado | n_rejected: estado.n_rejected+1}
-
-                #Si mayoría rejected repito la propuesta con otro numero de instancia
-                if estado.n_rejected >= (length(estado.servidores)/2) do
-                    #Mayoría
-
-                    #Comprobar que no se haya enviado ya
-                    if estado.repetido == false do
-                        IO.inspect({"Repitiendo",estado.yo})
-                        Send.con_nodo_emisor({:paxos, estado.yo},{:proponer,estado.n_p+1,estado.v})
-                        estado = %{estado | repetido: true}
-                        bucle_recepcion(estado)
-                    end
-                end
-                bucle_recepcion(estado)
-
-
-            {:acepta,n,v,origin} -> 
-
-
-                if n >= estado.n_p do
-                    estado = %{estado | n_p: n}
-                    estado = %{estado | n_a: n}
-                    estado = %{estado | v_a: v}
-
-                    Send.con_nodo_emisor({:paxos, origin},{:acepta_ok,n})
-
+                    #Ni caso
                     bucle_recepcion(estado)
-                else
-                    Send.con_nodo_emisor({:paxos, origin},{:acepta_reject,estado.n_p})
                 end
 
-            {:acepta_ok,n} -> 
-                estado = %{estado | n_acepta: estado.n_acepta+1}
-
-                if estado.n_acepta >= (length(estado.servidores)/2) do
-                    #Mayoría
+            #Mesajes para el aceptador
+            {:prepara, n,num_instancia,origin} -> 
+                #Inicializar aceptadores para la nueva instancia
+                if(estado.aceptadores[num_instancia] == nil) do
+                    #estado = %{estado | aceptador: Aceptador.init(num_instancia)}
+                    estado = %{estado | aceptadores: Map.put(estado.aceptadores,num_instancia,Aceptador.init(num_instancia))}
                     
-                    if estado.enviados_d == false do
-                        Enum.map(estado.servidores, fn x -> Send.con_nodo_emisor({:paxos, x},{:decidido,estado.v}) end)
-                        estado = %{estado | enviados_d: true}
-                        bucle_recepcion(estado)
-                    end
-
-
+                    send(estado.aceptadores[num_instancia],{:prepara,n,origin})
+                    bucle_recepcion(estado)
+                else
+                    send(estado.aceptadores[num_instancia],{:prepara,n,origin})
+                    bucle_recepcion(estado)
                 end
+
+            {:acepta,n,v,origin,num_instancia} -> 
+                send(estado.aceptadores[num_instancia],{:acepta,n,v,origin})
                 bucle_recepcion(estado)
 
-            {:acepta_reject,n_p} -> 
-                IO.inspect({"Acept rejected--------------------------------------------",estado.yo})
-                estado = %{estado | n_rejected: estado.n_rejected+1}
+            {:decidido,v,num_instancia} -> 
 
-                #Si mayoría rejected repito la propuesta con otro numero de instancia
-                if estado.n_rejected >= (length(estado.servidores)/2) do
-                    #Mayoría
-
-                    #Comprobar que no se haya enviado ya
-                    if estado.repetido == false do
-                        IO.inspect({"Repitiendo desde acept",estado.yo})
-                        Send.con_nodo_emisor({:paxos, estado.yo},{:proponer,estado.n_p+1,estado.v})
-                        estado = %{estado | repetido: true}
-                        bucle_recepcion(estado)
-                    end
+                if estado.decididos[num_instancia] == nil do
+                    estado = %{estado | decididos: Map.put(estado.decididos,num_instancia,v)}
+                    IO.inspect({"decidido",num_instancia,v})
+                    bucle_recepcion(estado)
+                else
+                    IO.inspect({"Instancia ya había sido decidida",num_instancia,v})
+                    bucle_recepcion(estado)
                 end
+
+
+
+
+
+
+            #Mensajes para el proponente
+            {:prepare_ok,n,n_a,v_a,num_instancia} -> 
+                send(estado.proponentes[num_instancia],{:prepare_ok,n,n_a,v_a})
                 bucle_recepcion(estado)
 
-            {:decidido,v} -> 
-                estado = %{estado | decididos: estado.decididos ++ [{estado.n_p,v}]}
-                
-                IO.inspect({"decidido",estado.n_p,v})
-                
+            {:prepare_reject,n_p,num_instancia} -> 
+                send(estado.proponentes[num_instancia],{:prepare_reject,n_p})
                 bucle_recepcion(estado)
+
+            {:acepta_ok,n,num_instancia} -> 
+                send(estado.proponentes[num_instancia],{:acepta_ok,n})
+                bucle_recepcion(estado)
+
+            {:acepta_reject,n_p,num_instancia} -> 
+                send(estado.proponentes[num_instancia],{:acepta_reject,n_p})
+                bucle_recepcion(estado)
+
 
         end
         
@@ -492,6 +436,7 @@ defmodule ServidorPaxos do
         end
         estado
     end
+
 
 
 
