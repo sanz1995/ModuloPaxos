@@ -46,7 +46,7 @@ defmodule  ServicioPaxosTest do
 
 
         # Primer test
-        @tag :deshabilitado
+        #@tag :deshabilitado
         test "Unico proponente", %{n1: n1, s: servidores} do
             IO.puts("Test: Unico proponente ...")
 
@@ -61,7 +61,7 @@ defmodule  ServicioPaxosTest do
 
 
         # Segundo test
-        @tag :deshabilitado
+        #@tag :deshabilitado
         test "Varios propo., un valor", 
                                     %{n1: n1, n2: n2, n3: n3, s: servidores} do
             IO.puts("Test: Varios propo., un valor ...")
@@ -79,7 +79,7 @@ defmodule  ServicioPaxosTest do
 
 
         # Tercer test
-        @tag :deshabilitado
+        #@tag :deshabilitado
         test "Varios propo., varios valor",
                                         %{n1: n1, n2: n2, n3: n3, s: servers} do
             IO.puts("Test: Varios propo., varios valor ...")
@@ -96,7 +96,7 @@ defmodule  ServicioPaxosTest do
         end
 
         # Cuarto test
-        @tag :deshabilitado
+        #@tag :deshabilitado
         test "Instancias fuera de orden",
                                         %{n1: n1, n2: n2, n3: n3, s: servers} do
             IO.puts("Test: Instancias fuera de orden ...")
@@ -201,7 +201,7 @@ defmodule  ServicioPaxosTest do
             {:ok, [s: servidores, n_s: num_servidores]}
         end
 
-        @tag :deshabilitado
+        #@tag :deshabilitado
         test "Olvidando", %{s: s, n_s: num_servidores} do
             IO.puts("Test: Olvidando ...")
             
@@ -229,6 +229,7 @@ defmodule  ServicioPaxosTest do
                               exit("2º mini erroneo en un servidor")
                           end
                       end)
+
 
             # Hechos instancias 1 y 2 para todos -> cambia mini() ?
             Enum.each(s, fn(nodo) -> ServidorPaxos.hecho(nodo, 1) end)
