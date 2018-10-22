@@ -12,11 +12,14 @@ defmodule Aceptador do
 		
 		receive do
             {:prepara,n,origin} -> 
+
             	if n > n_p do
+
                     Send.con_nodo_emisor({:paxos, origin},{:prepare_ok,n,n_a,v_a,num_instancia})
 
                     aceptador(num_instancia,n,n_a,v_a)
                 else
+                    Send.con_nodo_emisor({:paxos, origin},{:prepare_reject,n_p,num_instancia})
                     aceptador(num_instancia,n_p,n_a,v_a)
                 end
 

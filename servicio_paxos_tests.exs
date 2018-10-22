@@ -243,7 +243,6 @@ defmodule  ServicioPaxosTest do
             if not all_3 do
                 exit("mini() no ha avanzado despues de hecho() !")
             end
-
             IO.puts(" ... Superado")
         end
     end
@@ -264,7 +263,7 @@ defmodule  ServicioPaxosTest do
             {:ok, [s: servidores, n_s: num_servidores]}
         end
 
-        @tag :deshabilitado
+        #@tag :deshabilitado
         test "Muchas instancias", %{s: s, n_s: num_serv} do
             # Ejecutar 10 lotes, cada uno de 3 instancias a la vez.
             # Es decir,  30 instancias en total
@@ -290,7 +289,7 @@ defmodule  ServicioPaxosTest do
             IO.puts(" ... Superado")
         end
 
-        @tag :deshabilitado
+        #@tag :deshabilitado
         test "Muchas instancias, comm. no fiable:", %{s: s, n_s: n_serv} do
             # Poner todos los nodos en comunicación no fiable
             Enum.each(s, fn(nodo) -> ServidorPaxos.comm_no_fiable(nodo) end)
@@ -312,8 +311,10 @@ defmodule  ServicioPaxosTest do
                                             end)
                               end)
                       end)
+
                       
             # Esperar decisión de últimas 3 instancias
+            #28
             Enum.each(28..30, fn(i) -> esperar_n_nodos(s, i, n_serv) end)
 
             IO.puts(" ... Superado")
@@ -444,6 +445,7 @@ defmodule  ServicioPaxosTest do
         nuDecididos = num_decididos(servidores, nuInstancia)
     
         if  nuDecididos < nuDeseados do
+            IO.inspect(nuDecididos)
             cond  do
                 time < 1000 ->
                     esperar_aun_mas_tiempo(servidores, nuInstancia,
@@ -473,6 +475,7 @@ defmodule  ServicioPaxosTest do
          
         # todos los valores decididos deben ser idénticos
         iguales(listDecid)
+
 
         # si lo valores ha sido iguales, cuantos ha sido decididos ?  
         length(listDecid)

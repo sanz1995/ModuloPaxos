@@ -5,7 +5,7 @@ defmodule Proponente do
 	
 
 
-    @t 50
+    @t 25
 	def init(servidores, num_instancia, v, paxos) do
 	    Node.spawn_link(node(), __MODULE__, :proponer, [servidores,num_instancia, 0, v, paxos])
 	end
@@ -41,7 +41,6 @@ defmodule Proponente do
 
 
                 decidir(num_instancia,v,servidores,paxos)
-
                 
                 #INFORMAR AL NODO PAXOS DE QUE HA TERMINADO EL PROCESO
                 Send.con_nodo_emisor({:paxos, paxos},{'EXIT',self(),:ok})
@@ -59,26 +58,9 @@ defmodule Proponente do
 
     end
 
-    def decidir(num_instancia,v,servidores,paxos) do
-        
-        #ENVIAR DECIDIDO A TODOS LOS SERVIDORES
-        Enum.map(servidores, fn x -> Send.con_nodo_emisor({:paxos, x},{:decidido,v,paxos,num_instancia}) end)
-
-        if esperar_confirmacion(length(servidores),0) do
-            IO.puts("Terminado")
-            :ok
-        else
-            decidir(num_instancia,v,servidores,paxos)
-        end
-    end
-
-
-
-
 
 
     def esperar_prepare_ok(numMayoria,count,mayor_n_a,v) do
-
         if count > numMayoria do
             {true,v,mayor_n_a}
         else
@@ -95,7 +77,6 @@ defmodule Proponente do
                     end
 
                 {:prepare_reject,n_p} -> 
-                    #IO.puts("reject")
                     if n_p > mayor_n_a do
                         esperar_prepare_ok(numMayoria,count,n_p,v)
                     else
@@ -131,12 +112,24 @@ defmodule Proponente do
         end       
     end
 
+    def decidir(num_instancia,v,servidores,paxos) do
+        
+        #ENVIAR DECIDIDO A TODOS LOS SERVIDORES
+        Enum.map(servidores, fn x -> Send.con_nodo_emisor({:paxos, x},{:decidido,v,paxos,num_instancia}) end)
+
+        if esperar_confirmacion(length(servidores),0) do
+            :ok
+        else
+            decidir(num_instancia,v,servidores,paxos)
+        end
+    end
+
 
     def esperar_confirmacion(necesarios,count) do
-
+        #IO.inspect({necesarios,count})
         receive do
             :recibido -> 
-                if (count+1)>necesarios do
+                if (count+1)>=necesarios do
                     true
                 else
                     esperar_confirmacion(necesarios,count + 1)

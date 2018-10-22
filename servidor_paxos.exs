@@ -88,8 +88,13 @@ defmodule ServidorPaxos do
     def start_instancia(nodo_paxos, nu_instancia, valor) do
         
         #spawn(proponer(1,2))
-        Send.con_nodo_emisor({:paxos, nodo_paxos},{:proponer,nu_instancia,valor})
+        Send.con_nodo_emisor({:paxos, nodo_paxos},{:proponer,nu_instancia,valor,self()})
 
+        receive do
+            mensaje -> mensaje
+        after @timeout ->
+            start_instancia(nodo_paxos, nu_instancia, valor)
+        end
         #spawn(proponer(nu_instancia,valor))
         #receive do Respuesta -> :ok end
         # VUESTRO CODIGO AQUI
@@ -111,7 +116,8 @@ defmodule ServidorPaxos do
 
         Send.con_nodo_emisor({:paxos, nodo_paxos},{:decidido?,nu_instancia,self()})
         receive do
-            mensaje -> mensaje
+            mensaje -> IO.inspect({nu_instancia,mensaje})
+                mensaje
         after @timeout ->
             {false,:ficticio}    
         end
@@ -150,8 +156,6 @@ defmodule ServidorPaxos do
         receive do
             mensaje -> mensaje
         end
-
-     
 
     end
 
@@ -234,7 +238,7 @@ defmodule ServidorPaxos do
 
 
         #spawn(proponer(1,2))
-        estado = %ServidorPaxos{servidores: servidores,yo: yo}
+        estado = %ServidorPaxos{servidores: servidores,yo: yo, fiabilidad: :fiable}
 
         estado = %{estado | hechos: Enum.reduce(servidores,%{},fn(x,acc) -> Map.put(acc, x, 0) end)}
 
@@ -259,11 +263,11 @@ defmodule ServidorPaxos do
                 bucle_recepcion(estado)
 
             :comm_no_fiable    ->
-                poner_no_fiable()
+                estado = poner_no_fiable(estado)
                 bucle_recepcion(estado)
 
             :comm_fiable       ->
-                poner_fiable()
+                estado = poner_fiable(estado)
                 bucle_recepcion(estado)
                 
             {:es_fiable, Pid} ->    
@@ -328,6 +332,14 @@ defmodule ServidorPaxos do
             {:actualizar_hecho, node, n} ->
                 estado = %{estado | hechos: Map.put(estado.hechos,node,n)}
                 #IO.inspect(estado.hechos)
+
+                min = Enum.min(Map.values(estado.hechos))
+                keys_hechos = Enum.filter(Map.keys(estado.decididos),fn (x) -> x <= min end)
+
+                estado = %{estado | decididos: Map.drop(estado.decididos,keys_hechos)}
+
+                IO.inspect(estado.decididos)
+
                 bucle_recepcion(estado)
 
             
@@ -382,7 +394,8 @@ defmodule ServidorPaxos do
     
     defp simula_fallo_mensj_prop_y_acep(mensaje,estado) do
 
-        fiable = es_fiable?()
+        fiable = es_fiable?(estado)
+        #IO.inspect({"Fiabilidad",fiable})
             # utilizamos el modulo de numeros aleatorios de Erlang "rand"
         aleatorio = :rand.uniform(1000)
         
@@ -399,12 +412,18 @@ defmodule ServidorPaxos do
 
         # VUESTRO CODIGO AQUI
 
+        IO.inspect(mensaje)
+
         case mensaje do    
 
             #Empezar propuesta
-            {:proponer,num_instancia,v} -> 
+            {:proponer,num_instancia,v,origin} -> 
 
                 IO.inspect({"Proponiendo",num_instancia,v})
+
+                send(origin,:ok)
+
+
                 #Inicializar proponente para la nueva instancia
                 if estado.proponentes[num_instancia] == nil do
                     #estado = %{estado | proponente: Proponente.init(estado.servidores,num_instancia, v, estado.yo)}
@@ -430,8 +449,16 @@ defmodule ServidorPaxos do
                 end
 
             {:acepta,n,v,origin,num_instancia} -> 
-                send(estado.aceptadores[num_instancia],{:acepta,n,v,origin})
-                bucle_recepcion(estado)
+                #IO.puts("acep")
+
+                if(estado.aceptadores[num_instancia] == nil) do
+                    estado = %{estado | aceptadores: Map.put(estado.aceptadores,num_instancia,Aceptador.init(num_instancia))} 
+                    send(estado.aceptadores[num_instancia],{:acepta,n,v,origin})
+                    bucle_recepcion(estado)
+                else
+                    send(estado.aceptadores[num_instancia],{:acepta,n,v,origin})
+                    bucle_recepcion(estado)
+                end
 
 
             {:decidido,v,origin,num_instancia} -> 
@@ -462,7 +489,7 @@ defmodule ServidorPaxos do
                     bucle_recepcion(estado)
                 end
 
-            {:recibido,num_instancia} -> send(estado.proponentes[num_instancia],:decidido)
+            {:recibido,num_instancia} -> send(estado.proponentes[num_instancia],:recibido)
 
             #Mensajes para el proponente
             {:prepare_ok,n,n_a,v_a,num_instancia} -> 
@@ -511,16 +538,16 @@ defmodule ServidorPaxos do
 
 
 
-    defp poner_fiable() do
-        :ok
+    defp poner_fiable(estado) do
+        %{estado | fiabilidad: :fiable}
     end
 
-    defp poner_no_fiable() do
-        :ok
+    defp poner_no_fiable(estado) do
+        %{estado | fiabilidad: :nofiable}
     end
 
-    defp es_fiable?() do
-        true
+    defp es_fiable?(estado) do
+        estado.fiabilidad==:fiable
     end
 
 end
