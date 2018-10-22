@@ -338,7 +338,7 @@ defmodule  ServicioPaxosTest do
             {:ok, [s: servidores]}
         end
 
-       @tag :deshabilitado
+       #@tag :deshabilitado
        test "No hay decisión si particionado", %{s: s} do
             particionar(s, [ [0, 2], [1,3], [4] ] )
         
@@ -364,7 +364,7 @@ defmodule  ServicioPaxosTest do
             {:ok, [s: servidores]}
         end
   
-        @tag :deshabilitado
+        #@tag :deshabilitado
         test "Decision en particion mayoritaria", %{s: s} do
             particionar(s, [ [0], [1, 2, 3], [4] ] )
         

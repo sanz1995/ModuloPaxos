@@ -270,16 +270,16 @@ defmodule ServidorPaxos do
                 estado = poner_fiable(estado)
                 bucle_recepcion(estado)
                 
-            {:es_fiable, Pid} ->    
+            {:es_fiable, pid} ->    
                 #????????????
 
                 bucle_recepcion(estado)
 
-            {:limitar_acceso, Nodos} ->
-                #????????????
+            {:limitar_acceso, nodos} ->
+                estado = %{estado | nodos_accesibles: nodos}
                 bucle_recepcion(estado)    
 
-            {:n_mensajes, Pid} ->
+            {:n_mensajes, pid} ->
                 #?????????
                 bucle_recepcion(estado)
 
