@@ -29,7 +29,7 @@ defmodule Proponente do
 
 
         if acuerdo do
-            IO.puts("Acuerdo en Prepara")
+            #IO.puts("Acuerdo en Prepara")
 
             #ENVIAR ACEPTA A TODOS LOS SERVIDORES
             Enum.map(servidores, fn x -> Send.con_nodo_emisor({:paxos, x},{:acepta,n,v,paxos,num_instancia}) end)
@@ -37,7 +37,7 @@ defmodule Proponente do
             #ESPERAR RESPUESTA DE UNA MAYORÍA
             if esperar_acepta_ok((length(servidores)/2),0) do
                 
-                IO.puts("Acuerdo en Acepta")
+                #IO.puts("Acuerdo en Acepta")
 
 
                 decidir(num_instancia,v,servidores,paxos)
@@ -47,11 +47,11 @@ defmodule Proponente do
             else
 
 
-                IO.inspect({"Repetir",max(mayor_n,n)+1})
+                #IO.inspect({"Repetir",max(mayor_n,n)+1})
                 proponer(servidores, num_instancia,max(mayor_n,n)+1,v,paxos)
             end
         else
-            IO.inspect({"Repetir",max(mayor_n,n)+1})
+            #IO.inspect({"Repetir",max(mayor_n,n)+1})
             proponer(servidores, num_instancia,max(mayor_n,n)+1,v,paxos)
         end
 
@@ -84,7 +84,7 @@ defmodule Proponente do
                     end
                     #Comprobar si ya no se puede
             after @t ->
-                IO.puts("No hay acuerdo")
+                #IO.puts("No hay acuerdo")
                 {false,v,mayor_n_a}
             end    
         end   
@@ -107,7 +107,7 @@ defmodule Proponente do
                 esperar_acepta_ok(numMayoria,count)
                 #Comprobar si ya no se puede
         after @t ->
-            IO.puts("No hay acuerdo")
+            #IO.puts("No hay acuerdo")
             false
         end       
     end

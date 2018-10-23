@@ -8,7 +8,7 @@ Code.require_file("servidor_paxos.exs", __DIR__)
 
 #Poner en marcha el servicio de tests unitarios con tiempo de vida limitada
 # seed: 0 para que la ejecucion de tests no tenga orden aleatorio
-ExUnit.start([timeout: 20000, seed: 0, exclude: [:deshabilitado]]) # milisegundos
+ExUnit.start([timeout: 8000, seed: 0, exclude: [:deshabilitado]]) # milisegundos
 
 defmodule  ServicioPaxosTest do
 

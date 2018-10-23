@@ -31,7 +31,7 @@ defmodule ServidorPaxos do
                 proponentes: %{},
                 aceptadores: %{},
                 hechos: %{},
-                hecho: 0
+                min: 0
               #completar esta estructura de datos con lo que se necesite
 
     @timeout 50
@@ -116,7 +116,7 @@ defmodule ServidorPaxos do
 
         Send.con_nodo_emisor({:paxos, nodo_paxos},{:decidido?,nu_instancia,self()})
         receive do
-            mensaje -> IO.inspect({nu_instancia,mensaje})
+            mensaje -> #IO.inspect({nu_instancia,mensaje})
                 mensaje
         after @timeout ->
             {false,:ficticio}    
@@ -211,7 +211,7 @@ defmodule ServidorPaxos do
     """
     @spec escucha(node) :: :escucha
     def escucha(nodo_paxos) do
-        IO.inspect({"Escuchar",nodo_paxos})
+        #IO.inspect({"Escuchar",nodo_paxos})
         Send.con_nodo_emisor({:paxos, nodo_paxos},:escucha)
     end
 
@@ -338,13 +338,15 @@ defmodule ServidorPaxos do
 
                 estado = %{estado | decididos: Map.drop(estado.decididos,keys_hechos)}
 
-                IO.inspect(estado.decididos)
+                estado = %{estado | min: min}
+
+                #IO.inspect(estado.decididos)
 
                 bucle_recepcion(estado)
 
             
             :ponte_sordo -> 
-                IO.inspect({"Estoy sordo",estado.yo})
+                #IO.inspect({"Estoy sordo",estado.yo})
                 espero_escucha(estado);
 
             {'EXIT', _pid, dato_devuelto} -> 
@@ -352,7 +354,7 @@ defmodule ServidorPaxos do
     
                 # VUESTRO CODIGO AQUI
 
-                IO.puts("FIN")
+                #IO.puts("FIN")
                 #estado = %{estado | proponente: nil}
                 
 
@@ -412,27 +414,29 @@ defmodule ServidorPaxos do
 
         # VUESTRO CODIGO AQUI
 
-        IO.inspect(mensaje)
+        #IO.inspect(mensaje)
 
         case mensaje do    
 
             #Empezar propuesta
             {:proponer,num_instancia,v,origin} -> 
 
-                IO.inspect({"Proponiendo",num_instancia,v})
+                #IO.inspect({"Proponiendo",num_instancia,v})
 
                 send(origin,:ok)
 
-
-                #Inicializar proponente para la nueva instancia
-                if estado.proponentes[num_instancia] == nil do
-                    #estado = %{estado | proponente: Proponente.init(estado.servidores,num_instancia, v, estado.yo)}
-                    estado = %{estado | proponentes: Map.put(estado.proponentes,num_instancia,Proponente.init(estado.servidores,num_instancia, v, estado.yo))}
-                    bucle_recepcion(estado)
-                else
-                    #Ni caso
-                    bucle_recepcion(estado)
+                if estado.min <= num_instancia do
+                    #Inicializar proponente para la nueva instancia
+                    if estado.proponentes[num_instancia] == nil do
+                        #estado = %{estado | proponente: Proponente.init(estado.servidores,num_instancia, v, estado.yo)}
+                        estado = %{estado | proponentes: Map.put(estado.proponentes,num_instancia,Proponente.init(estado.servidores,num_instancia, v, estado.yo))}
+                        bucle_recepcion(estado)
+                    else
+                        #Ni caso
+                        bucle_recepcion(estado)
+                    end                    
                 end
+
 
             #Mesajes para el aceptador
             {:prepara, n,num_instancia,origin} -> 
@@ -477,13 +481,15 @@ defmodule ServidorPaxos do
                 if estado.decididos[num_instancia] == nil do
                     estado = %{estado | decididos: Map.put(estado.decididos,num_instancia,v)}
                     IO.inspect({"decidido",num_instancia,v})
-
+                    bucle_recepcion(estado)
+                    """
                     if estado.hecho < num_instancia do
                         #estado = %{estado | hecho: num_instancia}
                         bucle_recepcion(estado)
                     else
                         bucle_recepcion(estado)
                     end
+                    """
                 else
                     #IO.inspect({"Instancia ya había sido decidida",num_instancia,v})
                     bucle_recepcion(estado)
@@ -526,7 +532,7 @@ defmodule ServidorPaxos do
 
             #Si n es el mas grande hasta el momento, utilizar valor propio, sino sobreescribir
             if n_a != 0 do
-                IO.inspect("V_actualizada")
+                #IO.inspect("V_actualizada")
                 estado = %{estado | v: v_a}
                 estado
             end
